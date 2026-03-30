@@ -1,0 +1,53 @@
+import secrets
+import hashlib
+from datetime import datetime, timedelta, timezone
+
+from cryptography.fernet import Fernet
+from jose import jwt
+from passlib.context import CryptContext
+
+from core.config import settings
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+fernet = Fernet(settings.ENCRYPTION_KEY.encode())
+ALGORITHM = "HS256"
+
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    return pwd_context.verify(plain, hashed)
+
+
+def create_access_token(data: dict) -> str:
+    payload = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(
+        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    )
+    payload.update({"exp": expire})
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)
+
+
+def decode_access_token(token: str) -> dict:
+    return jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+
+
+def generate_api_key() -> tuple[str, str]:
+    """Returns (raw_key, hashed_key). Store only the hash."""
+    raw = "sk-" + secrets.token_urlsafe(32)
+    hashed = hashlib.sha256(raw.encode()).hexdigest()
+    return raw, hashed
+
+
+def hash_api_key(raw: str) -> str:
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def encrypt_token(token: str) -> str:
+    return fernet.encrypt(token.encode()).decode()
+
+
+def decrypt_token(encrypted: str) -> str:
+    return fernet.decrypt(encrypted.encode()).decode()
