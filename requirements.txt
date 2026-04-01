@@ -25,3 +25,4 @@ httpx
 aiosqlite
 fastapi
 psycopg2
+slowapi==0.1.9
