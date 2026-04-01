@@ -8,26 +8,31 @@ from models.user import User, UserType
 from models.api_key import APIKey
 from schemas.api_key import APIKeyCreate, APIKeyCreated, APIKeyOut
 from routers.deps import get_current_user
-
+from core.limiter import limiter
+from fastapi import Request
 router = APIRouter(prefix="/api-keys", tags=["API Keys"])
 
 
-@router.post("/", response_model=APIKeyCreated, status_code=201)
+@router.post("/", response_model=APIKeyOut, status_code=201)
+@limiter.limit("10/hour")
 async def create_api_key(
-    payload: APIKeyCreate,
+    request: Request,
+    body: APIKeyCreate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if user.user_type != UserType.developer:
-        raise HTTPException(status_code=403, detail="Only developer accounts can create API keys")
-
-    raw_key, hashed = generate_api_key()
-    key = APIKey(user_id=user.id, key_hash=hashed, label=payload.label)
+    raw, hashed = generate_api_key()
+    key = APIKey(
+        user_id=user.id,
+        key_hash=hashed,
+        label=body.label,
+        key_preview=raw[-4:],   # fix #15: store last 4 chars for display only
+    )
     db.add(key)
     await db.commit()
     await db.refresh(key)
-
-    return APIKeyCreated(id=key.id, label=key.label, raw_key=raw_key, created_at=key.created_at)
+    # return the raw key ONCE — never stored, never retrievable again
+    return {**key.__dict__, "key": raw}
 
 
 @router.get("/", response_model=list[APIKeyOut])

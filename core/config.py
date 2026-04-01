@@ -7,21 +7,24 @@ class Settings(BaseSettings):
     APP_NAME: str = "DocBot"
     SECRET_KEY: str
     ENCRYPTION_KEY: str
-
     DATABASE_URL: str
-
     GOOGLE_API_KEY: str
-    GEMINI_MODEL: str = "gemini-2.0-flash-lite"
+    GEMINI_MODEL: str = "gemini-3.1-flash-lite-preview"
     EMBEDDING_MODEL: str = "models/text-embedding-004"
-
     CHROMA_PERSIST_PATH: str = "./vector_store/data"
-
     UPLOAD_DIR: str = "./uploads"
     MAX_FILE_SIZE_MB: int = 20
-
     APP_BASE_URL: str
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    ALLOWED_ORIGINS: str = "*"   # plain str — parse it via property below
 
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 1 day
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        v = self.ALLOWED_ORIGINS.strip()
+        if v.startswith("["):
+            import json
+            return json.loads(v)
+        return [o.strip() for o in v.split(",") if o.strip()]
 
 
 settings = Settings()

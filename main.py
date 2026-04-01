@@ -1,13 +1,18 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from core.config import settings
 from core.database import engine, Base
+from core.limiter import limiter, user_limiter, api_limiter, bot_limiter
 
-import models  # noqa: F401 — registers all tables with Base
+import models  # noqa: F401
 
 from routers import auth, bots, documents, chat, telegram, api_keys
 
@@ -27,9 +32,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# fix #8: attach limiter state and middleware
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+# fix #13: lock CORS to your actual frontend domain via env var
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # lock to your Vercel domain in production
+    allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -28,3 +28,5 @@ class User(Base):
 
     bots = relationship("Bot", back_populates="user", cascade="all, delete-orphan")
     api_keys = relationship("APIKey", back_populates="user", cascade="all, delete-orphan")
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    usage_logs = relationship("UsageLog", back_populates="user")  # no cascade — logs are kept even if bot deleted

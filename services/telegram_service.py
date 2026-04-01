@@ -4,12 +4,16 @@ from core.config import settings
 TELEGRAM_API = "https://api.telegram.org/bot{token}/{method}"
 
 
-async def set_webhook(token: str, bot_id: str) -> dict:
+async def set_webhook(token: str, bot_id: str, secret: str) -> dict:
     webhook_url = f"{settings.APP_BASE_URL}/telegram/webhook/{bot_id}"
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             TELEGRAM_API.format(token=token, method="setWebhook"),
-            json={"url": webhook_url, "allowed_updates": ["message"]},
+            json={
+                "url": webhook_url,
+                "allowed_updates": ["message"],
+                "secret_token": secret,   # fix #6
+            },
         )
     return resp.json()
 

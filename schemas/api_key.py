@@ -18,7 +18,11 @@ class APIKeyCreated(BaseModel):
 class APIKeyOut(BaseModel):
     id: str
     label: str
+    key_preview: str 
+    key: str | None = None  
     last_used: datetime | None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+APIKeyCreated = APIKeyOut

@@ -3,7 +3,7 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 
 from cryptography.fernet import Fernet
-from jose import jwt
+from jose import jwt, JWTError
 from passlib.context import CryptContext
 
 from core.config import settings
@@ -31,7 +31,13 @@ def create_access_token(data: dict) -> str:
 
 
 def decode_access_token(token: str) -> dict:
-    return jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+    # options={"verify_sub": False} — skip jose's strict sub type check
+    return jwt.decode(
+        token,
+        settings.SECRET_KEY,
+        algorithms=[ALGORITHM],
+        options={"verify_sub": False},
+    )
 
 
 def generate_api_key() -> tuple[str, str]:
@@ -42,6 +48,17 @@ def generate_api_key() -> tuple[str, str]:
 
 
 def hash_api_key(raw: str) -> str:
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def create_refresh_token() -> tuple[str, str]:
+    """Returns (raw_token, hashed_token). Store only the hash."""
+    raw = secrets.token_urlsafe(48)
+    hashed = hashlib.sha256(raw.encode()).hexdigest()
+    return raw, hashed
+
+
+def hash_refresh_token(raw: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 

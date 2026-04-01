@@ -3,12 +3,13 @@ import uuid
 import shutil
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from core.config import settings
 from core.database import get_db
+from core.limiter import user_limiter
 from models.user import User
 from models.bot import Bot
 from models.document import Document, DocumentStatus
@@ -38,7 +39,7 @@ async def _ingest(doc_id: str, file_path: str, file_type: str, bot_id: str):
         try:
             text = extract_text(file_path, file_type)
             chunks = chunk_text(text)
-            count = index_chunks(bot_id, doc_id, chunks)
+            count = await index_chunks(bot_id, doc_id, chunks)
             doc.status = DocumentStatus.INDEXED
             doc.chunk_count = count
         except Exception as e:
@@ -48,7 +49,9 @@ async def _ingest(doc_id: str, file_path: str, file_type: str, bot_id: str):
 
 
 @router.post("/", response_model=DocumentOut, status_code=201)
+@user_limiter.limit("30/hour")
 async def upload_document(
+    request: Request,           # ← required by slowapi
     bot_id: str,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -90,7 +93,9 @@ async def upload_document(
 
 
 @router.get("/", response_model=list[DocumentOut])
+@user_limiter.limit("60/hour")
 async def list_documents(
+    request: Request,           # ← required by slowapi
     bot_id: str,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -103,7 +108,9 @@ async def list_documents(
 
 
 @router.delete("/{doc_id}", status_code=204)
+@user_limiter.limit("30/hour")
 async def delete_document(
+    request: Request,           # ← required by slowapi
     bot_id: str,
     doc_id: str,
     db: AsyncSession = Depends(get_db),

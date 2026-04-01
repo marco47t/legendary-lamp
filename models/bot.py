@@ -36,3 +36,5 @@ class Bot(Base):
     user = relationship("User", back_populates="bots")
     documents = relationship("Document", back_populates="bot", cascade="all, delete-orphan")
     usage_logs = relationship("UsageLog", back_populates="bot", cascade="all, delete-orphan")
+    # fix #5: conversation history
+    chat_messages = relationship("ChatMessage", back_populates="bot", cascade="all, delete-orphan")

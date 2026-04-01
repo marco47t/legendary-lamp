@@ -211,7 +211,12 @@ export default function DevPortal() {
                       {copiedId === 'new' ? '✓ Copied' : 'Copy'}
                     </button>
                     <button
-                      onClick={() => setNewKey(null)}
+                      onClick={() => {
+                        // fix #15: warn before dismissing — key is gone after this
+                        if (window.confirm('Have you copied your key? It will never be shown again.')) {
+                          setNewKey(null)
+                        }
+                      }}
                       className="px-3 py-2 rounded-xl text-xs font-bold transition-all"
                       style={{ backgroundColor: '#f1f4f5', color: '#5a6062' }}
                     >
@@ -386,24 +391,21 @@ export default function DevPortal() {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="font-semibold text-sm" style={{ color: '#2d3335' }}>{key.label}</p>
+                                {/* fix #15: show last 4 real chars from backend instead of always ????  */}
                                 <p className="text-xs font-mono mt-0.5 truncate" style={{ color: '#adb3b5' }}>
-                                  sk-••••••••••••{key.key_preview || '••••'}
+                                  sk-••••••••••••{key.key_preview}
                                 </p>
                               </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
+                              {/* fix #15: raw key is shown ONCE at creation — can't re-copy from list */}
                               <button
-                                onClick={() => copy(`sk-${key.id}`, key.id)}
-                                className="w-8 h-8 rounded-xl flex items-center justify-center transition-all"
-                                style={{
-                                  backgroundColor: copiedId === key.id ? '#f0fdf4' : '#f1f4f5',
-                                  color: copiedId === key.id ? '#16a34a' : '#5a6062',
-                                }}
-                                title="Copy key ID"
+                                disabled
+                                className="w-8 h-8 rounded-xl flex items-center justify-center cursor-not-allowed"
+                                style={{ backgroundColor: '#f1f4f5', color: '#d1d5db' }}
+                                title="Key can only be copied once at creation"
                               >
-                                <span className="material-symbols-outlined text-sm">
-                                  {copiedId === key.id ? 'check' : 'content_copy'}
-                                </span>
+                                <span className="material-symbols-outlined text-sm">lock</span>
                               </button>
                               <button
                                 onClick={() => revoke(key.id)}
