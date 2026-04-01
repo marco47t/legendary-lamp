@@ -3,10 +3,11 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from core.config import settings
 from core.database import engine, Base
@@ -32,12 +33,22 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# fix #8: attach limiter state and middleware
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-app.add_middleware(SlowAPIMiddleware)
 
-# fix #13: lock CORS to your actual frontend domain via env var
+
+class OptionsPassthroughMiddleware(BaseHTTPMiddleware):
+    """Let OPTIONS preflight requests bypass rate limiting entirely."""
+    async def dispatch(self, request: Request, call_next):
+        if request.method == "OPTIONS":
+            return Response(status_code=200)
+        return await call_next(request)
+
+
+# Middleware stack is LIFO — last added = outermost = runs first
+# Execution order: CORSMiddleware → OptionsPassthrough → SlowAPI → route
+app.add_middleware(SlowAPIMiddleware)
+app.add_middleware(OptionsPassthroughMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins_list,
@@ -47,8 +58,6 @@ app.add_middleware(
     expose_headers=["*"],
     max_age=600,
 )
-app.add_middleware(SlowAPIMiddleware)  # ← SlowAPI added AFTER CORS = runs inside CORS
-
 
 app.include_router(auth.router)
 app.include_router(bots.router)

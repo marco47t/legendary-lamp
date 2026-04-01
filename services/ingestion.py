@@ -1,7 +1,7 @@
 from pathlib import Path
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=80)
+splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
 
 
 def extract_text(file_path: str, file_type: str) -> str:

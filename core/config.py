@@ -9,14 +9,15 @@ class Settings(BaseSettings):
     ENCRYPTION_KEY: str
     DATABASE_URL: str
     GOOGLE_API_KEY: str
-    GEMINI_MODEL: str = "gemini-3.1-flash-lite-preview"
-    EMBEDDING_MODEL: str = "models/text-embedding-004"
+    GEMINI_MODEL: str = "gemini-3.1-flash-lite-preview"        # ← fixed (was gemini-3.1 which doesn't exist)
+    EMBEDDING_MODEL: str = "gemini-embedding-001"        # ← fixed (removed models/ prefix)
     CHROMA_PERSIST_PATH: str = "./vector_store/data"
     UPLOAD_DIR: str = "./uploads"
     MAX_FILE_SIZE_MB: int = 20
     APP_BASE_URL: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
-    ALLOWED_ORIGINS: str = "*"   # plain str — parse it via property below
+    ALLOWED_ORIGINS: str = "*"
+    TELEGRAM_WEBHOOK_SECRET: str = ""                  # ← added (empty default = Telegram optional)
 
     @property
     def allowed_origins_list(self) -> list[str]:

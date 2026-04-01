@@ -2,6 +2,7 @@ import asyncio
 from google import genai
 from google.genai import types
 from core.config import settings
+import time 
 
 _client = genai.Client(api_key=settings.GOOGLE_API_KEY)
 
@@ -18,9 +19,44 @@ def _sync_embed(text: str) -> list[float]:
 
 
 def _sync_embed_batch(texts: list[str]) -> list[list[float]]:
-    """Embed a list of texts in one API call instead of N separate calls."""
-    result = _client.models.embed_content(model=EMBED_MODEL, contents=texts)
-    return [e.values for e in result.embeddings]
+    """Use true batchEmbedContents — 1 request per batch, not 1 per chunk."""
+    BATCH_SIZE = 100   # max allowed by Gemini batch endpoint
+    WINDOW_SECONDS = 65
+    all_embeddings: list[list[float]] = []
+
+    for i in range(0, len(texts), BATCH_SIZE):
+        chunk = texts[i : i + BATCH_SIZE]
+        start = time.time()
+
+        for attempt in range(3):
+            try:
+                requests = [
+                    types.EmbedContentRequest(model=EMBED_MODEL, contents=text)
+                    for text in chunk
+                ]
+                result = _client.models.batch_embed_contents(
+                    model=EMBED_MODEL,
+                    requests=requests,
+                )
+                all_embeddings.extend(e.values for e in result.embeddings)
+                break
+            except Exception as e:
+                if "429" in str(e) and attempt < 2:
+                    wait = 30 * (attempt + 1)
+                    print(f"[embed] 429 rate limited, waiting {wait}s...")
+                    time.sleep(wait)
+                else:
+                    raise
+
+        # sleep is OUTSIDE the retry loop, INSIDE the batch loop
+        if i + BATCH_SIZE < len(texts):
+            elapsed = time.time() - start
+            sleep_for = max(0, WINDOW_SECONDS - elapsed)
+            print(f"[embed] batch {i//BATCH_SIZE + 1} done, sleeping {sleep_for:.1f}s")
+            time.sleep(sleep_for)
+
+    return all_embeddings
+     
 
 
 def _sync_generate(system_prompt: str, context: str, question: str) -> tuple[str, int]:

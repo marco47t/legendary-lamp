@@ -70,9 +70,10 @@ async def telegram_webhook(
 ):
     # fix #6: verify Telegram secret token header
     secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
-    if not secret or secret != settings.TELEGRAM_WEBHOOK_SECRET:
-        return {"ok": True}  # silently ignore — don't reveal the endpoint exists
-
+    if settings.TELEGRAM_WEBHOOK_SECRET:  # only enforce if a secret is configured
+        secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
+        if secret != settings.TELEGRAM_WEBHOOK_SECRET:
+            return {"ok": True}
     update = await request.json()
     message = update.get("message")
     if not message:
