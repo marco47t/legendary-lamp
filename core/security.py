@@ -21,14 +21,14 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-def create_access_token(data: dict) -> str:
-    payload = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-    )
-    payload.update({"exp": expire})
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)
-
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
+    to_encode = data.copy()
+    # ✅ Cast sub to string — UUID is not JSON serializable by jose
+    if "sub" in to_encode:
+        to_encode["sub"] = str(to_encode["sub"])
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode["exp"] = expire
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
 
 def decode_access_token(token: str) -> dict:
     # options={"verify_sub": False} — skip jose's strict sub type check
