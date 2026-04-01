@@ -23,6 +23,7 @@ env/
 ENV/
 .venv/
 
+frontend/node_modules/
 # Environment variables — NEVER commit this
 .env
 
