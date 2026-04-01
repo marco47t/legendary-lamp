@@ -75,11 +75,22 @@ async def make_bot(db, user_id: str, name="TestBot") -> Bot:
 
 @pytest.fixture(autouse=True)
 def mock_llm():
-    with patch("services.llm.embed_text", new_callable=AsyncMock, return_value=[0.1] * 768), \
-         patch("services.llm.embed_query", new_callable=AsyncMock, return_value=[0.1] * 768), \
-         patch("services.llm.embed_batch", new_callable=AsyncMock, return_value=[[0.1] * 768]), \
-         patch("services.llm.generate_answer", new_callable=AsyncMock, return_value=("Mocked answer.", 42)), \
-         patch("services.llm.generate_answer_with_history", new_callable=AsyncMock, return_value=("Mocked answer.", 42)):
+    with patch("routers.chat.generate_answer_with_history",
+               new_callable=AsyncMock, return_value=("Mocked answer.", 42)), \
+         patch("routers.chat.retrieve",
+               new_callable=AsyncMock, return_value=[]), \
+         patch("services.llm.embed_text",
+               new_callable=AsyncMock, return_value=[0.1] * 768), \
+         patch("services.llm.embed_query",
+               new_callable=AsyncMock, return_value=[0.1] * 768), \
+         patch("services.llm.embed_batch",
+               new_callable=AsyncMock, return_value=[[0.1] * 768]), \
+         patch("services.llm.generate_answer",
+               new_callable=AsyncMock, return_value=("Mocked answer.", 42)), \
+         patch("services.llm.generate_answer_with_history",
+               new_callable=AsyncMock, return_value=("Mocked answer.", 42)), \
+         patch("services.rag.retrieve",
+               new_callable=AsyncMock, return_value=[]):
         yield
 
 

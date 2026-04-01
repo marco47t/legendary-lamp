@@ -23,8 +23,10 @@ async def test_async_password_hash_verify():
 
 
 def test_access_token_roundtrip():
-    token = create_access_token("user-123")
-    assert decode_access_token(token) == "user-123"
+    # create_access_token takes a dict, sub is extracted on decode
+    token = create_access_token({"sub": "user-123", "type": "developer"})
+    payload = decode_access_token(token)
+    assert payload["sub"] == "user-123"
 
 
 def test_access_token_invalid():

@@ -123,7 +123,7 @@ async def delete_document(
     if not doc or doc.bot_id != bot_id:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    remove_document(bot_id, doc_id)
+    await remove_document(bot_id, doc_id)
     if os.path.exists(doc.file_path):
         os.remove(doc.file_path)
     await db.delete(doc)

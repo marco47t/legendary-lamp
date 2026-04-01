@@ -1,7 +1,7 @@
 import secrets
 import hashlib
 from datetime import datetime, timedelta, timezone
-
+import asyncio
 from cryptography.fernet import Fernet
 from jose import jwt, JWTError
 from passlib.context import CryptContext
@@ -68,3 +68,13 @@ def encrypt_token(token: str) -> str:
 
 def decrypt_token(encrypted: str) -> str:
     return fernet.decrypt(encrypted.encode()).decode()
+
+import asyncio
+
+async def async_hash_password(password: str) -> str:
+    """bcrypt is CPU-bound — run in thread pool to avoid blocking the event loop."""
+    return await asyncio.to_thread(hash_password, password)
+
+
+async def async_verify_password(plain: str, hashed: str) -> bool:
+    return await asyncio.to_thread(verify_password, plain, hashed)

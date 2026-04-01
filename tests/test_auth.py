@@ -19,7 +19,7 @@ async def test_register_duplicate_email(client: AsyncClient):
     await client.post("/auth/register", json=payload)
     r = await client.post("/auth/register", json=payload)
     assert r.status_code == 409@pytest.mark.asyncio
-    
+
 async def test_register_duplicate_email(client: AsyncClient):
     payload = {"email": "dup@test.com", "password": "password123", "user_type": "developer"}
     await client.post("/auth/register", json=payload)
@@ -113,3 +113,17 @@ async def test_protected_route_no_token(client: AsyncClient):
 async def test_protected_route_invalid_token(client: AsyncClient):
     r = await client.get("/bots/", headers={"Authorization": "Bearer garbage"})
     assert r.status_code == 401
+
+@pytest.mark.asyncio
+async def test_register_and_login(client: AsyncClient):
+    r = await client.post("/auth/register", json={
+        "email": "http@test.com", "password": "password123", "user_type": "developer"
+    })
+    assert r.status_code == 201
+    assert "access_token" in r.json()
+
+    r2 = await client.post("/auth/login", json={
+        "email": "http@test.com", "password": "password123"
+    })
+    assert r2.status_code == 200
+    assert "access_token" in r2.json()

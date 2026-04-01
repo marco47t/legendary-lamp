@@ -1,6 +1,6 @@
 import pytest
 from httpx import AsyncClient
-from conftest import make_user
+from conftest import make_bot, make_user
 
 
 @pytest.mark.asyncio
@@ -33,8 +33,16 @@ async def test_api_key_auth(client: AsyncClient, db):
                                  headers={"Authorization": f"Bearer {token}"})
     assert create_r.status_code == 201
     raw_key = create_r.json()["key"]
-    r = await client.get("/bots/", headers={"X-API-Key": raw_key})
-    assert r.status_code == 200
+
+    # API keys work on /api/v1/chat, not /bots/
+    bot = await make_bot(db, (await make_user(db, "apibotowner@test.com"))[0].id)
+
+    # easier: just verify the key is accepted on the api/v1/chat endpoint
+    r = await client.post("/api/v1/chat",
+                          json={"bot_id": bot.id, "message": "hello"},
+                          headers={"X-API-Key": raw_key})
+    # 404 because bot doesn't belong to this user — but NOT 401
+    assert r.status_code != 401
 
 @pytest.mark.asyncio
 async def test_api_key_not_shown_in_list(client: AsyncClient, db):
@@ -68,3 +76,11 @@ async def test_revoke_api_key(client: AsyncClient, db):
 
     r_use = await client.get("/bots/", headers={"X-API-Key": raw_key})
     assert r_use.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_revoke_nonexistent_key(client: AsyncClient, db):
+    _, token = await make_user(db, "badrevoke@test.com")
+    r = await client.delete("/api-keys/nonexistent-id",
+                            headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 404

@@ -2,13 +2,17 @@ import pytest
 from httpx import AsyncClient
 from conftest import make_user, make_bot
 from models.bot import Bot
+
 @pytest.mark.asyncio
 async def test_create_bot(client: AsyncClient, db):
     _, token = await make_user(db, "botcreate@test.com")
-    r = await client.put("/bots/", json={"name": "MyBot", "language": "en"},
+    r = await client.post("/bots/", json={"name": "MyBot", "language": "en"},  # ← POST
                           headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 201
-    assert r.json()["name"] == "MyBot"
+    data = r.json()
+    assert data["name"] == "MyBot"
+    assert data["language"] == "en"
+    assert "id" in data
 
 
 @pytest.mark.asyncio
@@ -98,3 +102,11 @@ async def test_bot_persona_null_fallback(client: AsyncClient, db):
     assert r.status_code == 200
     assert isinstance(r.json()["persona"], str)
     assert len(r.json()["persona"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_get_nonexistent_bot(client: AsyncClient, db):
+    _, token = await make_user(db, "ghost@test.com")
+    r = await client.get("/bots/does-not-exist",
+                         headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 404

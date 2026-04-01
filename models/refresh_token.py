@@ -13,7 +13,7 @@ class RefreshToken(Base):
     user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False)
     token_hash: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
     expires_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),   # ← THIS is what fixes the naive/aware error
+        DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc) + timedelta(days=30)
     )
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)

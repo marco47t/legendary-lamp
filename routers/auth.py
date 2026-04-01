@@ -19,7 +19,9 @@ from schemas.auth import (
 from routers.deps import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
-
+def _ensure_utc(dt: datetime) -> datetime:
+    """SQLite strips tzinfo on read — re-attach UTC if missing."""
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
 async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db)):
@@ -67,9 +69,11 @@ async def refresh(payload: RefreshRequest, db: AsyncSession = Depends(get_db)):
 
     if not record or record.revoked:
         raise HTTPException(status_code=401, detail="Invalid or revoked refresh token")
-    if record.expires_at < datetime.now(timezone.utc):
+    expires_at = record.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=401, detail="Refresh token expired")
-
     # rotate — revoke old, issue new
     record.revoked = True
     raw, token_hash = create_refresh_token()
@@ -79,6 +83,7 @@ async def refresh(payload: RefreshRequest, db: AsyncSession = Depends(get_db)):
     user = await db.get(User, record.user_id)
     access = create_access_token({"sub": user.id, "type": user.user_type})
     return TokenResponse(access_token=access, refresh_token=raw, token_type="bearer")
+
 
 
 @router.post("/logout", status_code=204)
