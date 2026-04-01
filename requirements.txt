@@ -24,4 +24,4 @@ pytest-cov
 httpx
 aiosqlite
 fastapi
-slowapi
+psycopg2
