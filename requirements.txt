@@ -22,3 +22,4 @@ slowapi==0.1.9
 pytest
 pytest-asyncio
 pytest-cov
+greenlet>=3.0.0
