@@ -20,7 +20,7 @@ def _sync_embed(text: str) -> list[float]:
 
 
 def _sync_embed_batch(texts: list[str]) -> list[list[float]]:
-    """True batchEmbedContents — 1 API request per 100 chunks."""
+    """embed_content with a list = single batchEmbedContents call."""
     BATCH_SIZE = 100
     WINDOW_SECONDS = 65
     all_embeddings: list[list[float]] = []
@@ -31,16 +31,9 @@ def _sync_embed_batch(texts: list[str]) -> list[list[float]]:
 
         for attempt in range(3):
             try:
-                requests = [                                          # ✅ build list
-                    types.EmbedContentRequest(
-                        model=EMBED_MODEL,
-                        contents=text                                 # one text per request object
-                    )
-                    for text in chunk
-                ]
-                result = _client.models.batch_embed_contents(
+                result = _client.models.embed_content(
                     model=EMBED_MODEL,
-                    requests=requests,                                # ✅ pass the list
+                    contents=chunk,   # ✅ pass list directly — this IS batchEmbedContents
                 )
                 all_embeddings.extend(e.values for e in result.embeddings)
                 break

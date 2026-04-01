@@ -31,6 +31,7 @@ def _save_file(upload: UploadFile, bot_id: str, doc_id: str, ext: str) -> str:
 
 
 async def _ingest(doc_id: str, file_path: str, file_type: str, bot_id: str):
+    print(f"[ingest] starting doc {doc_id}")   # ← add
     from core.database import AsyncSessionLocal
     async with AsyncSessionLocal() as session:
         doc = await session.get(Document, doc_id)
@@ -43,6 +44,9 @@ async def _ingest(doc_id: str, file_path: str, file_type: str, bot_id: str):
             doc.status = DocumentStatus.INDEXED
             doc.chunk_count = count
         except Exception as e:
+            import traceback
+            print(f"[ingest] FAILED: {e}")      # ← add
+            traceback.print_exc()               # ← add full traceback
             doc.status = DocumentStatus.FAILED
             doc.error_message = str(e)
         await session.commit()
