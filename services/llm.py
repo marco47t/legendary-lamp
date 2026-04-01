@@ -2,6 +2,7 @@ import asyncio
 from google import genai
 from google.genai import types
 from core.config import settings
+from fastapi import Request
 import time 
 
 _client = genai.Client(api_key=settings.GOOGLE_API_KEY)
@@ -19,8 +20,8 @@ def _sync_embed(text: str) -> list[float]:
 
 
 def _sync_embed_batch(texts: list[str]) -> list[list[float]]:
-    """Use true batchEmbedContents — 1 request per batch, not 1 per chunk."""
-    BATCH_SIZE = 100   # max allowed by Gemini batch endpoint
+    """True batchEmbedContents — 1 API request per 100 chunks."""
+    BATCH_SIZE = 100
     WINDOW_SECONDS = 65
     all_embeddings: list[list[float]] = []
 
@@ -30,13 +31,16 @@ def _sync_embed_batch(texts: list[str]) -> list[list[float]]:
 
         for attempt in range(3):
             try:
-                requests = [
-                    types.EmbedContentRequest(model=EMBED_MODEL, contents=text)
+                requests = [                                          # ✅ build list
+                    types.EmbedContentRequest(
+                        model=EMBED_MODEL,
+                        contents=text                                 # one text per request object
+                    )
                     for text in chunk
                 ]
                 result = _client.models.batch_embed_contents(
                     model=EMBED_MODEL,
-                    requests=requests,
+                    requests=requests,                                # ✅ pass the list
                 )
                 all_embeddings.extend(e.values for e in result.embeddings)
                 break
@@ -48,7 +52,6 @@ def _sync_embed_batch(texts: list[str]) -> list[list[float]]:
                 else:
                     raise
 
-        # sleep is OUTSIDE the retry loop, INSIDE the batch loop
         if i + BATCH_SIZE < len(texts):
             elapsed = time.time() - start
             sleep_for = max(0, WINDOW_SECONDS - elapsed)
@@ -56,7 +59,6 @@ def _sync_embed_batch(texts: list[str]) -> list[list[float]]:
             time.sleep(sleep_for)
 
     return all_embeddings
-     
 
 
 def _sync_generate(system_prompt: str, context: str, question: str) -> tuple[str, int]:
