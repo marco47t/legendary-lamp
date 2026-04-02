@@ -19,21 +19,23 @@ def _sync_embed(text: str) -> list[float]:
     return result.embeddings[0].values
 
 
-def _sync_embed_batch(texts: list[str]) -> list[list[float]]:
-    """embed_content with a list = single batchEmbedContents call."""
+# In llm.py — replace _sync_embed_batch + embed_batch with this:
+
+async def embed_batch(texts: list[str]) -> list[list[float]]:
     BATCH_SIZE = 100
     WINDOW_SECONDS = 65
     all_embeddings: list[list[float]] = []
 
     for i in range(0, len(texts), BATCH_SIZE):
-        chunk = texts[i : i + BATCH_SIZE]
-        start = time.time()
+        chunk = texts[i: i + BATCH_SIZE]
+        start = asyncio.get_event_loop().time()
 
         for attempt in range(3):
             try:
-                result = _client.models.embed_content(
+                result = await asyncio.to_thread(
+                    _client.models.embed_content,
                     model=EMBED_MODEL,
-                    contents=chunk,   # ✅ pass list directly — this IS batchEmbedContents
+                    contents=chunk,
                 )
                 all_embeddings.extend(e.values for e in result.embeddings)
                 break
@@ -41,15 +43,15 @@ def _sync_embed_batch(texts: list[str]) -> list[list[float]]:
                 if "429" in str(e) and attempt < 2:
                     wait = 30 * (attempt + 1)
                     print(f"[embed] 429 rate limited, waiting {wait}s...")
-                    time.sleep(wait)
+                    await asyncio.sleep(wait)  # ✅ non-blocking
                 else:
                     raise
 
         if i + BATCH_SIZE < len(texts):
-            elapsed = time.time() - start
+            elapsed = asyncio.get_event_loop().time() - start
             sleep_for = max(0, WINDOW_SECONDS - elapsed)
             print(f"[embed] batch {i//BATCH_SIZE + 1} done, sleeping {sleep_for:.1f}s")
-            time.sleep(sleep_for)
+            await asyncio.sleep(sleep_for)  # ✅ non-blocking
 
     return all_embeddings
 
