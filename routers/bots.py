@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -72,6 +74,19 @@ async def delete_bot(
     bot = await db.get(Bot, bot_id)
     if not bot or bot.user_id != user.id:
         raise HTTPException(status_code=404, detail="Bot not found")
-    delete_collection(bot_id)
+
+    # Delete physical files for all documents
+    from sqlalchemy import select as sa_select
+    from models.document import Document
+    result = await db.execute(sa_select(Document).where(Document.bot_id == bot_id))
+    for doc in result.scalars().all():
+        if os.path.exists(doc.file_path):
+            os.remove(doc.file_path)
+
+    try:
+        delete_collection(bot_id)
+    except Exception:
+        pass
+
     await db.delete(bot)
     await db.commit()

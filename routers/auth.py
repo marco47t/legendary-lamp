@@ -54,13 +54,21 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is disabled")
 
+    # Clean up expired/revoked tokens for this user
+    from sqlalchemy import delete as sa_delete
+    await db.execute(
+        sa_delete(RefreshToken).where(
+            RefreshToken.user_id == user.id,
+            (RefreshToken.revoked == True) | (RefreshToken.expires_at < datetime.now(timezone.utc))
+        )
+    )
+
     raw, token_hash = create_refresh_token()
     db.add(RefreshToken(user_id=user.id, token_hash=token_hash))
     await db.commit()
 
     access = create_access_token({"sub": user.id, "type": user.user_type})
     return TokenResponse(access_token=access, refresh_token=raw, token_type="bearer")
-
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(payload: RefreshRequest, db: AsyncSession = Depends(get_db)):

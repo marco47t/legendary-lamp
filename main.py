@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -23,6 +24,7 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+    Path("static").mkdir(parents=True, exist_ok=True)
     yield
 
 
@@ -58,6 +60,8 @@ app.add_middleware(
     expose_headers=["*"],
     max_age=600,
 )
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(auth.router)
 app.include_router(bots.router)

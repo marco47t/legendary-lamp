@@ -132,3 +132,21 @@ async def delete_document(
         os.remove(doc.file_path)
     await db.delete(doc)
     await db.commit()
+
+
+@router.get("/{doc_id}/status", response_model=DocumentOut)
+@user_limiter.limit("120/minute")
+async def get_document_status(
+    request: Request,
+    bot_id: str,
+    doc_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    bot = await db.get(Bot, bot_id)
+    if not bot or bot.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    doc = await db.get(Document, doc_id)
+    if not doc or doc.bot_id != bot_id:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return doc
