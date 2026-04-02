@@ -21,7 +21,7 @@ def _sync_embed(text: str) -> list[float]:
 
 # In llm.py — replace _sync_embed_batch + embed_batch with this:
 
-async def embed_batch(texts: list[str]) -> list[list[float]]:
+async def _sync_embed_batch(texts: list[str]) -> list[list[float]]:
     BATCH_SIZE = 100
     WINDOW_SECONDS = 65
     all_embeddings: list[list[float]] = []
