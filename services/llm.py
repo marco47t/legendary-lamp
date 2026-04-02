@@ -82,7 +82,7 @@ async def embed_query(text: str) -> list[float]:
     return await asyncio.to_thread(_sync_embed, text)
 
 async def embed_batch(texts: list[str]) -> list[list[float]]:
-    return await asyncio.to_thread(_sync_embed_batch, texts)
+    return await _sync_embed_batch(texts)
 
 async def generate_answer(system_prompt: str, context: str, question: str) -> tuple[str, int]:
     return await asyncio.to_thread(_sync_generate, system_prompt, context, question)
