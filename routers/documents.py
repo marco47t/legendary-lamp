@@ -40,7 +40,7 @@ async def _ingest(doc_id: str, file_path: str, file_type: str, bot_id: str):
         try:
             text = extract_text(file_path, file_type)
             chunks = chunk_text(text)
-            count = await index_chunks(bot_id, doc_id, chunks)
+            count = await index_chunks(bot_id, doc_id, doc.filename, chunks)
             doc.status = DocumentStatus.INDEXED
             doc.chunk_count = count
         except Exception as e:

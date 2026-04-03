@@ -60,7 +60,7 @@ export default function BotDetail() {
   const fetchApiKeys = async () => {
     setKeysLoading(true)
     try {
-      const res = await api.get(`/bots/${id}/api-keys`)
+      const res = await api.get(`/api-keys/`)
       setApiKeys(res.data)
     } catch { setApiKeys([]) }
     finally { setKeysLoading(false) }
@@ -71,7 +71,7 @@ export default function BotDetail() {
     if (!newKeyName.trim()) return
     setCreatingKey(true)
     try {
-      const res = await api.post(`/bots/${id}/api-keys`, { name: newKeyName.trim() })
+      const res = await api.post(`/api-keys/`, { label: newKeyName.trim() })
       setNewKeyVisible(res.data)
       setApiKeys(prev => [...prev, res.data])
       setNewKeyName('')
@@ -81,7 +81,7 @@ export default function BotDetail() {
 
   const deleteApiKey = async (keyId) => {
     if (!confirm('Revoke this API key? This cannot be undone.')) return
-    await api.delete(`/bots/${id}/api-keys/${keyId}`)
+    await api.delete(`/api-keys/${keyId}`)
     setApiKeys(prev => prev.filter(k => k.id !== keyId))
   }
 
@@ -94,7 +94,7 @@ export default function BotDetail() {
   const fetchAnalytics = async () => {
     setAnalyticsLoading(true)
     try {
-      const res = await api.get(`/bots/${id}/analytics`)
+      const res = await api.get(`/analytics/bots/${id}`)
       setAnalytics(res.data)
     } catch { setAnalytics(null) }
     finally { setAnalyticsLoading(false) }

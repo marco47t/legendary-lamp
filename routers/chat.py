@@ -38,7 +38,7 @@ async def _chat_logic(
     session_id = session_id or str(uuid.uuid4())
     history = await load_history(bot_id, session_id, db)
     chunks = await retrieve(bot_id, message)
-    context = "\n\n---\n\n".join(chunks) if chunks else "No relevant documents found."
+    context = "\n\n---\n\n".join(c["text"] for c in chunks) if chunks else "No relevant documents found."
     answer, tokens = await generate_answer_with_history(bot.persona, context, history, message)
 
     db.add(ChatMessage(bot_id=bot_id, session_id=session_id, role="user", content=message))
@@ -51,7 +51,8 @@ async def _chat_logic(
         channel=channel,
     ))
     await db.commit()
-    return ChatResponse(answer=answer, sources=chunks[:2], session_id=session_id)
+    sources = [{"filename": c["filename"], "text": c["text"][:200]} for c in chunks[:2]]
+    return ChatResponse(answer=answer, sources=sources, session_id=session_id)
 
 
 # ── Streaming helper ──────────────────────────────────────────────────────────
@@ -80,7 +81,7 @@ async def _stream_logic(
     session_id = session_id or str(uuid.uuid4())
     history = await load_history(bot_id, session_id, db)
     chunks = await retrieve(bot_id, message)
-    context = "\n\n---\n\n".join(chunks) if chunks else "No relevant documents found."
+    context = "\n\n---\n\n".join(c["text"] for c in chunks) if chunks else "No relevant documents found."
 
     full_text = ""
     tokens = 0
@@ -107,7 +108,8 @@ async def _stream_logic(
     await db.commit()
 
     # Send sources and session_id as final SSE events
-    yield f"data: [SOURCES] {json.dumps(chunks[:2])}\n\n"
+    sources = [{"filename": c["filename"], "text": c["text"][:200]} for c in chunks[:2]]
+    yield f"data: [SOURCES] {json.dumps(sources)}\n\n"
     yield f"data: [DONE] {session_id}\n\n"
 
 
@@ -189,7 +191,7 @@ async def chat_public(
     session_id = payload.session_id or str(uuid.uuid4())
     history = await load_history(bot_id, session_id, db)
     chunks = await retrieve(bot_id, payload.message)
-    context = "\n\n---\n\n".join(chunks) if chunks else "No relevant documents found."
+    context = "\n\n---\n\n".join(c["text"] for c in chunks) if chunks else "No relevant documents found."
     answer, tokens = await generate_answer_with_history(bot.persona, context, history, payload.message)
 
     db.add(ChatMessage(bot_id=bot_id, session_id=session_id, role="user", content=payload.message))
@@ -202,7 +204,8 @@ async def chat_public(
         channel="public",
     ))
     await db.commit()
-    return ChatResponse(answer=answer, sources=chunks[:2], session_id=session_id)
+    sources = [{"filename": c["filename"], "text": c["text"][:200]} for c in chunks[:2]]
+    return ChatResponse(answer=answer, sources=sources, session_id=session_id)
 
 
 @router.post("/public/chat/{bot_id}/stream")
@@ -222,7 +225,7 @@ async def chat_public_stream(
         session_id = payload.session_id or str(uuid.uuid4())
         history = await load_history(bot_id, session_id, db)
         chunks = await retrieve(bot_id, payload.message)
-        context = "\n\n---\n\n".join(chunks) if chunks else "No relevant documents found."
+        context = "\n\n---\n\n".join(c["text"] for c in chunks) if chunks else "No relevant documents found."
 
         full_text = ""
         tokens = 0
@@ -246,7 +249,8 @@ async def chat_public_stream(
         ))
         await db.commit()
 
-        yield f"data: [SOURCES] {json.dumps(chunks[:2])}\n\n"
+        sources = [{"filename": c["filename"], "text": c["text"][:200]} for c in chunks[:2]]
+        yield f"data: [SOURCES] {json.dumps(sources)}\n\n"
         yield f"data: [DONE] {session_id}\n\n"
 
     return StreamingResponse(

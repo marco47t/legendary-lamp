@@ -6,6 +6,7 @@ import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import BotDetail from './pages/BotDetail'
 import DevPortal from './pages/DevPortal'
+import Analytics from './pages/Analytics'
 import ProtectedRoute from './components/ProtectedRoute'
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
           </ProtectedRoute>
         } />
         <Route path="/bots/:id" element={<ProtectedRoute><BotDetail /></ProtectedRoute>} />
+        <Route path="/analytics" element={<ProtectedRoute noLayout><Analytics /></ProtectedRoute>} />
         <Route path="/dev" element={<ProtectedRoute noLayout><DevPortal /></ProtectedRoute>} />
       </Routes>
     </AnimatePresence>
