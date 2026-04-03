@@ -55,9 +55,9 @@ export default function Dashboard() {
       action: () => { setSelectedBotId(null); setShowBots(true) },
     },
     {
-      icon: 'description',
-      label: 'Docs',
-      action: () => {},
+      icon: 'bar_chart',
+      label: 'Analytics',
+      action: () => navigate('/analytics'),
     },
     {
       icon: 'api',

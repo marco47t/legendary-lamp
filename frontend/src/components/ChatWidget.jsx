@@ -6,7 +6,7 @@ export default function ChatWidget({ botId }) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef(null)
-  const sessionId = `web-${botId}-${Date.now()}`
+  const sessionId = useRef(`web-${botId}-${Date.now()}`).current
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -19,17 +19,38 @@ export default function ChatWidget({ botId }) {
     setMessages(prev => [...prev, { role: 'user', text }])
     setLoading(true)
     try {
-      const res = await api.post('/chat', { bot_id: botId, message: text, session_id: sessionId })
-      setMessages(prev => [...prev, { role: 'bot', text: res.data.answer }])
+      const res = await api.post('/chat', {
+        bot_id: botId,
+        message: text,
+        session_id: sessionId,
+      })
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'bot',
+          text: res.data.answer,
+          sources: res.data.sources || [],
+          rating: null,
+        },
+      ])
     } catch {
-      setMessages(prev => [...prev, { role: 'bot', text: '⚠️ Something went wrong. Please try again.' }])
+      setMessages(prev => [
+        ...prev,
+        { role: 'bot', text: '⚠️ Something went wrong. Please try again.', sources: [], rating: null },
+      ])
     } finally {
       setLoading(false)
     }
   }
 
+  const rateMessage = (index, value) => {
+    setMessages(prev =>
+      prev.map((m, i) => (i === index ? { ...m, rating: value } : m))
+    )
+  }
+
   return (
-    <div className="flex flex-col h-[480px] bg-white rounded-2xl border border-gray-200 shadow-card overflow-hidden">
+    <div className="flex flex-col h-[520px] bg-white rounded-2xl border border-gray-200 shadow-card overflow-hidden">
       {/* Header */}
       <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
         <div className="w-8 h-8 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 font-semibold text-sm">B</div>
@@ -37,6 +58,14 @@ export default function ChatWidget({ botId }) {
           <p className="text-sm font-semibold text-gray-800">Bot Preview</p>
           <p className="text-xs text-green-500 font-medium">● Online</p>
         </div>
+        {messages.length > 0 && (
+          <button
+            onClick={() => setMessages([])}
+            className="ml-auto text-xs text-gray-400 hover:text-gray-600 transition"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Messages */}
@@ -53,15 +82,59 @@ export default function ChatWidget({ botId }) {
             {m.role === 'bot' && (
               <div className="w-7 h-7 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 text-xs font-semibold shrink-0 mt-0.5">B</div>
             )}
-            <div className={`max-w-sm px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-              m.role === 'user'
-                ? 'bg-brand-600 text-white rounded-tr-sm'
-                : 'bg-gray-100 text-gray-800 rounded-tl-sm'
-            }`}>
-              {m.text}
+            <div className="flex flex-col gap-1 max-w-sm">
+              <div
+                className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                  m.role === 'user'
+                    ? 'bg-brand-600 text-white rounded-tr-sm'
+                    : 'bg-gray-100 text-gray-800 rounded-tl-sm'
+                }`}
+              >
+                {m.text}
+              </div>
+
+              {/* Source citations */}
+              {m.role === 'bot' && m.sources && m.sources.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {m.sources.map((src, si) => (
+                    <span
+                      key={si}
+                      className="text-xs bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full border border-brand-100 font-medium"
+                      title={src}
+                    >
+                      📄 {typeof src === 'string' ? src.split('/').pop().slice(0, 28) : `Source ${si + 1}`}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Rating */}
+              {m.role === 'bot' && (
+                <div className="flex gap-1 mt-0.5">
+                  <button
+                    onClick={() => rateMessage(i, 'up')}
+                    className={`w-6 h-6 rounded-md flex items-center justify-center text-xs transition ${
+                      m.rating === 'up' ? 'bg-green-100 text-green-600' : 'text-gray-300 hover:text-green-500'
+                    }`}
+                    title="Good response"
+                  >
+                    👍
+                  </button>
+                  <button
+                    onClick={() => rateMessage(i, 'down')}
+                    className={`w-6 h-6 rounded-md flex items-center justify-center text-xs transition ${
+                      m.rating === 'down' ? 'bg-red-100 text-red-500' : 'text-gray-300 hover:text-red-400'
+                    }`}
+                    title="Bad response"
+                  >
+                    👎
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ))}
+
         {loading && (
           <div className="flex gap-3 justify-start">
             <div className="w-7 h-7 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 text-xs font-semibold shrink-0">B</div>
@@ -81,7 +154,7 @@ export default function ChatWidget({ botId }) {
           <input
             value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && send()}
+            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
             placeholder="Type your message..."
             className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
           />

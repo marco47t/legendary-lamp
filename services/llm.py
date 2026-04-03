@@ -7,19 +7,14 @@ import time
 
 _client = genai.Client(api_key=settings.GOOGLE_API_KEY)
 
-# Fix #10: use settings instead of hardcoded "gemini-embedding-001"
-EMBED_MODEL = settings.EMBEDDING_MODEL   # models/text-embedding-004
-CHAT_MODEL  = settings.GEMINI_MODEL      # gemini-2.0-flash-lite
+EMBED_MODEL = settings.EMBEDDING_MODEL
+CHAT_MODEL  = settings.GEMINI_MODEL
 
-
-# ── sync internals (run in thread pool) ──────────────────────────────────────
 
 def _sync_embed(text: str) -> list[float]:
     result = _client.models.embed_content(model=EMBED_MODEL, contents=text)
     return result.embeddings[0].values
 
-
-# In llm.py — replace _sync_embed_batch + embed_batch with this:
 
 async def _sync_embed_batch(texts: list[str]) -> list[list[float]]:
     BATCH_SIZE = 100
@@ -43,7 +38,7 @@ async def _sync_embed_batch(texts: list[str]) -> list[list[float]]:
                 if "429" in str(e) and attempt < 2:
                     wait = 30 * (attempt + 1)
                     print(f"[embed] 429 rate limited, waiting {wait}s...")
-                    await asyncio.sleep(wait)  # ✅ non-blocking
+                    await asyncio.sleep(wait)
                 else:
                     raise
 
@@ -51,13 +46,12 @@ async def _sync_embed_batch(texts: list[str]) -> list[list[float]]:
             elapsed = asyncio.get_event_loop().time() - start
             sleep_for = max(0, WINDOW_SECONDS - elapsed)
             print(f"[embed] batch {i//BATCH_SIZE + 1} done, sleeping {sleep_for:.1f}s")
-            await asyncio.sleep(sleep_for)  # ✅ non-blocking
+            await asyncio.sleep(sleep_for)
 
     return all_embeddings
 
 
 def _sync_generate(system_prompt: str, context: str, question: str) -> tuple[str, int]:
-    # Fix #4: system_prompt ONLY in system_instruction, NOT repeated in contents
     prompt = (
         f"CONTEXT FROM KNOWLEDGE BASE:\n{context}\n\n"
         f"USER QUESTION: {question}\n\n"
@@ -72,8 +66,6 @@ def _sync_generate(system_prompt: str, context: str, question: str) -> tuple[str
     tokens = response.usage_metadata.total_token_count if response.usage_metadata else 0
     return text, tokens
 
-
-# ── async public API (Fix #1: never blocks the event loop) ───────────────────
 
 async def embed_text(text: str) -> list[float]:
     return await asyncio.to_thread(_sync_embed, text)
@@ -90,15 +82,13 @@ async def generate_answer(system_prompt: str, context: str, question: str) -> tu
 def _sync_generate_with_history(
     system_prompt: str,
     context: str,
-    history: list[dict],   # [{"role": "user"|"model", "parts": [{"text": "..."}]}]
+    history: list[dict],
     question: str,
 ) -> tuple[str, int]:
-    # Build conversation as a list of Content objects
     contents = []
     for msg in history:
         contents.append(types.Content(role=msg["role"], parts=[types.Part(text=msg["parts"][0]["text"])]))
 
-    # Append the new user turn with context injected
     user_turn = (
         f"CONTEXT FROM KNOWLEDGE BASE:\n{context}\n\n"
         f"USER QUESTION: {question}\n\n"
@@ -125,3 +115,50 @@ async def generate_answer_with_history(
     return await asyncio.to_thread(
         _sync_generate_with_history, system_prompt, context, history, question
     )
+
+
+# ── NEW: Streaming generator ─────────────────────────────────────────────────
+
+async def stream_answer_with_history(
+    system_prompt: str,
+    context: str,
+    history: list[dict],
+    question: str,
+):
+    """
+    Async generator that yields text chunks as they arrive from Gemini.
+    Also yields a final special dict: {"__done__": True, "tokens": int, "full_text": str}
+    """
+    contents = []
+    for msg in history:
+        contents.append(
+            types.Content(role=msg["role"], parts=[types.Part(text=msg["parts"][0]["text"])])
+        )
+
+    user_turn = (
+        f"CONTEXT FROM KNOWLEDGE BASE:\n{context}\n\n"
+        f"USER QUESTION: {question}\n\n"
+        "Answer based only on the context above."
+    )
+    contents.append(types.Content(role="user", parts=[types.Part(text=user_turn)]))
+
+    def _sync_stream():
+        return _client.models.generate_content_stream(
+            model=CHAT_MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(system_instruction=system_prompt),
+        )
+
+    stream = await asyncio.to_thread(_sync_stream)
+
+    full_text = ""
+    total_tokens = 0
+
+    for chunk in stream:
+        if chunk.text:
+            full_text += chunk.text
+            yield chunk.text
+        if chunk.usage_metadata and chunk.usage_metadata.total_token_count:
+            total_tokens = chunk.usage_metadata.total_token_count
+
+    yield {"__done__": True, "tokens": total_tokens, "full_text": full_text}

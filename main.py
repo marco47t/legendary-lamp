@@ -16,7 +16,7 @@ from core.limiter import limiter, user_limiter, api_limiter, bot_limiter
 
 import models  # noqa: F401
 
-from routers import auth, bots, documents, chat, telegram, api_keys
+from routers import auth, bots, documents, chat, telegram, api_keys, analytics
 
 
 @asynccontextmanager
@@ -47,8 +47,6 @@ class OptionsPassthroughMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-# Middleware stack is LIFO — last added = outermost = runs first
-# Execution order: CORSMiddleware → OptionsPassthrough → SlowAPI → route
 app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(OptionsPassthroughMiddleware)
 app.add_middleware(
@@ -69,6 +67,7 @@ app.include_router(documents.router)
 app.include_router(chat.router)
 app.include_router(telegram.router)
 app.include_router(api_keys.router)
+app.include_router(analytics.router)
 
 
 @app.get("/health")
