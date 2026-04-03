@@ -36,8 +36,8 @@ export default function Analytics() {
     // Initial fetch
     fetchAnalytics(true)
 
-    // Real-time polling every 1 seconds
-    const interval = setInterval(() => fetchAnalytics(false), 1000)
+    // Real-time polling every 30 seconds
+    const interval = setInterval(() => fetchAnalytics(false), 30000)
     
     return () => clearInterval(interval)
   }, [])
@@ -97,7 +97,7 @@ export default function Analytics() {
               >
                 {[
                   { label: 'Total Tokens', value: analytics.total_tokens_all_time?.toLocaleString() ?? '0', icon: '⚡', color: 'text-amber-600' },
-                  { label: 'Unique Users', value: analytics.unique_sessions?.toLocaleString() ?? '0', icon: '👤', color: 'text-blue-600' },
+                  { label: 'Unique Users', value: analytics.unique_users?.toLocaleString() ?? '0', icon: '👤', color: 'text-blue-600' },
                   { label: 'Chats (30d)', value: analytics.chats_last_30_days?.toLocaleString() ?? '0', icon: '💬', color: 'text-purple-600' },
                   { label: 'Tokens (30d)', value: analytics.tokens_last_30_days?.toLocaleString() ?? '0', icon: '📊', color: 'text-emerald-600' },
                 ].map(kpi => (
