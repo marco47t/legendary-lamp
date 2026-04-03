@@ -10,8 +10,8 @@ export default function Analytics() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const fetchAnalytics = async () => {
-      setLoading(true)
+    const fetchAnalytics = async (isInitial = false) => {
+      if (isInitial) setLoading(true)
       try {
         const [summaryRes, dailyRes, botsRes] = await Promise.all([
           api.get('/analytics/summary'),
@@ -26,13 +26,20 @@ export default function Analytics() {
         })
       } catch (err) {
         console.error('Failed to fetch analytics:', err)
-        setAnalytics(null)
+        // If initial load fails, set analytics to null to show error state
+        if (isInitial) setAnalytics(null)
       } finally {
-        setLoading(false)
+        if (isInitial) setLoading(false)
       }
     }
 
-    fetchAnalytics()
+    // Initial fetch
+    fetchAnalytics(true)
+
+    // Real-time polling every 1 seconds
+    const interval = setInterval(() => fetchAnalytics(false), 1000)
+    
+    return () => clearInterval(interval)
   }, [])
 
   return (
@@ -60,10 +67,16 @@ export default function Analytics() {
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
             Dashboard
           </button>
-          <span className="text-xl font-bold tracking-tighter" style={{ color: '#0f172a' }}>
-            Analytics
-          </span>
-          <div className="w-20" /> {/* Spacer for centering */}
+          <div className="flex flex-col items-center">
+            <span className="text-xl font-bold tracking-tighter" style={{ color: '#0f172a' }}>
+              Analytics
+            </span>
+            <span className="text-[10px] text-gray-400 font-medium uppercase tracking-widest flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+              Live Updates
+            </span>
+          </div>
+          <div className="w-20" />
         </header>
 
         {/* ── Main content ── */}
@@ -84,8 +97,8 @@ export default function Analytics() {
               >
                 {[
                   { label: 'Total Tokens', value: analytics.total_tokens_all_time?.toLocaleString() ?? '0', icon: '⚡', color: 'text-amber-600' },
-                  { label: 'Total Chats', value: analytics.total_chats_all_time?.toLocaleString() ?? '0', icon: '👤', color: 'text-blue-600' },
-                  { label: 'Messages (30d)', value: analytics.chats_last_30_days?.toLocaleString() ?? '0', icon: '💬', color: 'text-purple-600' },
+                  { label: 'Unique Sessions', value: analytics.total_chats_all_time?.toLocaleString() ?? '0', icon: '👤', color: 'text-blue-600' },
+                  { label: 'Chats (30d)', value: analytics.chats_last_30_days?.toLocaleString() ?? '0', icon: '💬', color: 'text-purple-600' },
                   { label: 'Tokens (30d)', value: analytics.tokens_last_30_days?.toLocaleString() ?? '0', icon: '📊', color: 'text-emerald-600' },
                 ].map(kpi => (
                   <div key={kpi.label} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
@@ -156,10 +169,10 @@ export default function Analytics() {
                         <div key={i} className="flex justify-between items-center p-3 rounded-xl bg-gray-50/50">
                           <div>
                             <div className="text-sm font-bold text-gray-800">{bot.name || 'Assistant'}</div>
-                            <div className="text-[10px] text-gray-400 uppercase font-semibold">Total Chats</div>
+                            <div className="text-[10px] text-gray-400 uppercase font-semibold">Sessions</div>
                           </div>
                           <div className="text-lg font-black text-purple-600">
-                            {bot.chat_count ?? 0}
+                            {bot.chats ?? 0}
                           </div>
                         </div>
                       ))
