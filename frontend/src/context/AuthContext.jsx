@@ -8,14 +8,16 @@ export function AuthProvider({ children }) {
     return stored ? JSON.parse(stored) : null
   })
 
-  const login = (userData, token) => {
-    localStorage.setItem('token', token)
+  const login = (userData, accessToken, refreshToken) => {
+    localStorage.setItem('token', accessToken)
     localStorage.setItem('user', JSON.stringify(userData))
+    if (refreshToken) localStorage.setItem('refresh_token', refreshToken)
     setUser(userData)
   }
 
   const logout = () => {
     localStorage.removeItem('token')
+    localStorage.removeItem('refresh_token')
     localStorage.removeItem('user')
     setUser(null)
   }
