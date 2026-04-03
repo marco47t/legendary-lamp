@@ -15,8 +15,15 @@ let isRefreshing = false
 let failedQueue = []
 
 const processQueue = (error, token = null) => {
-  failedQueue.forEach(prom => error ? prom.reject(error) : prom.resolve(token))
+  failedQueue.forEach(p => error ? p.reject(error) : p.resolve(token))
   failedQueue = []
+}
+
+const forceLogout = () => {
+  localStorage.removeItem('token')
+  localStorage.removeItem('refresh_token')
+  localStorage.removeItem('user')
+  window.location.replace('/login')
 }
 
 api.interceptors.response.use(
@@ -24,32 +31,38 @@ api.interceptors.response.use(
   async err => {
     const original = err.config
 
-    // Not a 401, or it's already a retry, or it's an aborted request — skip
-    if (
-      err.response?.status !== 401 ||
-      original._retry ||
-      err.code === 'ERR_CANCELED'
-    ) {
+    // Ignore cancelled/aborted requests (happen during page navigation)
+    if (err.code === 'ERR_CANCELED' || err.name === 'CanceledError') {
+      return Promise.reject(err)
+    }
+
+    // Not a 401 → pass through normally
+    if (err.response?.status !== 401) {
+      return Promise.reject(err)
+    }
+
+    // Already retried once → give up and logout
+    if (original._retry) {
+      forceLogout()
       return Promise.reject(err)
     }
 
     const refreshToken = localStorage.getItem('refresh_token')
+
+    // No refresh token saved → logout immediately
     if (!refreshToken) {
-      // No refresh token at all — hard logout
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      window.location.replace('/login')
+      forceLogout()
       return Promise.reject(err)
     }
 
+    // Another refresh is already in progress → queue this request
     if (isRefreshing) {
-      // Queue this request until the refresh completes
       return new Promise((resolve, reject) => {
         failedQueue.push({ resolve, reject })
       }).then(token => {
         original.headers.Authorization = `Bearer ${token}`
         return api(original)
-      })
+      }).catch(e => Promise.reject(e))
     }
 
     original._retry = true
@@ -64,18 +77,13 @@ api.interceptors.response.use(
       const { access_token, refresh_token: newRefresh } = res.data
       localStorage.setItem('token', access_token)
       if (newRefresh) localStorage.setItem('refresh_token', newRefresh)
-
       api.defaults.headers.common.Authorization = `Bearer ${access_token}`
       processQueue(null, access_token)
-
       original.headers.Authorization = `Bearer ${access_token}`
       return api(original)
     } catch (refreshErr) {
       processQueue(refreshErr, null)
-      localStorage.removeItem('token')
-      localStorage.removeItem('refresh_token')
-      localStorage.removeItem('user')
-      window.location.replace('/login')
+      forceLogout()
       return Promise.reject(refreshErr)
     } finally {
       isRefreshing = false
