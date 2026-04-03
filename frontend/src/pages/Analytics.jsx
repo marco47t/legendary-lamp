@@ -60,7 +60,7 @@ export default function Analytics() {
         {/* ── Top bar ── */}
         <header className="fixed top-0 w-full flex items-center justify-between px-8 py-6 z-50" style={{ background: 'rgba(248,249,250,0.8)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/dashboard')}
             className="flex items-center gap-2 text-sm font-semibold hover:opacity-70 transition-opacity"
             style={{ color: '#742fe5' }}
           >
