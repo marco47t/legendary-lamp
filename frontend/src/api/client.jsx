@@ -18,10 +18,12 @@ api.interceptors.request.use(config => {
 api.interceptors.response.use(
   res => res,
   err => {
-    if (err.response?.status === 401) {
+    // Only force-logout on 401 if we actually had a token (not a public endpoint miss)
+    if (err.response?.status === 401 && localStorage.getItem('token')) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      window.location.href = '/login'
+      // Use replace so back button doesn't loop
+      window.location.replace('/login')
     }
     return Promise.reject(err)
   }

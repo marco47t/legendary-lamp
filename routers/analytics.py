@@ -50,6 +50,15 @@ async def get_summary(
     )
     total_chats = total_chats_result.scalar() or 0
 
+    # Unique sessions = distinct non-null session_ids across all bots
+    unique_sessions_result = await db.execute(
+        select(func.count(func.distinct(UsageLog.session_id))).where(
+            UsageLog.user_id == user.id,
+            UsageLog.session_id.isnot(None)
+        )
+    )
+    unique_sessions = unique_sessions_result.scalar() or 0
+
     # This month
     month_start = _since(30)
     month_tokens_result = await db.execute(
@@ -81,6 +90,7 @@ async def get_summary(
         "total_bots": total_bots,
         "total_tokens_all_time": total_tokens,
         "total_chats_all_time": total_chats,
+        "unique_sessions": unique_sessions,
         "tokens_last_30_days": month_tokens,
         "chats_last_30_days": month_chats,
         "by_channel": channels,
