@@ -16,7 +16,7 @@ from core.limiter import limiter, user_limiter, api_limiter, bot_limiter
 
 import models  # noqa: F401
 
-from routers import auth, bots, documents, chat, telegram, api_keys, analytics
+from routers import auth, bots, documents, chat, telegram, api_keys, analytics, feedback, widget
 
 
 @asynccontextmanager
@@ -68,6 +68,8 @@ app.include_router(chat.router)
 app.include_router(telegram.router)
 app.include_router(api_keys.router)
 app.include_router(analytics.router)
+app.include_router(feedback.router)
+app.include_router(widget.router)
 
 
 @app.get("/health")

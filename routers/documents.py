@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+import logging
 
 from core.config import settings
 from core.database import get_db
@@ -19,7 +20,7 @@ from services.ingestion import extract_text, chunk_text, get_file_type
 from services.rag import index_chunks, remove_document
 
 router = APIRouter(prefix="/bots/{bot_id}/documents", tags=["Documents"])
-
+logger = logging.getLogger(__name__)
 
 def _save_file(upload: UploadFile, bot_id: str, doc_id: str, ext: str) -> str:
     dir_path = Path(settings.UPLOAD_DIR) / bot_id
@@ -31,11 +32,12 @@ def _save_file(upload: UploadFile, bot_id: str, doc_id: str, ext: str) -> str:
 
 
 async def _ingest(doc_id: str, file_path: str, file_type: str, bot_id: str):
-    print(f"[ingest] starting doc {doc_id}")   # ← add
+    logger.info("[ingest] starting doc_id=%s bot_id=%s file_type=%s", doc_id, bot_id, file_type)
     from core.database import AsyncSessionLocal
     async with AsyncSessionLocal() as session:
         doc = await session.get(Document, doc_id)
         if not doc:
+            logger.warning("[ingest] doc_id=%s not found in DB, aborting", doc_id)
             return
         try:
             text = extract_text(file_path, file_type)
@@ -43,10 +45,9 @@ async def _ingest(doc_id: str, file_path: str, file_type: str, bot_id: str):
             count = await index_chunks(bot_id, doc_id, doc.filename, chunks)
             doc.status = DocumentStatus.INDEXED
             doc.chunk_count = count
+            logger.info("[ingest] success doc_id=%s chunks=%d", doc_id, count)
         except Exception as e:
-            import traceback
-            print(f"[ingest] FAILED: {e}")      # ← add
-            traceback.print_exc()               # ← add full traceback
+            logger.exception("[ingest] FAILED doc_id=%s bot_id=%s error=%s", doc_id, bot_id, e)
             doc.status = DocumentStatus.FAILED
             doc.error_message = str(e)
         await session.commit()

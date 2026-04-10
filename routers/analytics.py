@@ -10,6 +10,7 @@ from models.bot import Bot
 from models.usage import UsageLog
 from models.chat_message import ChatMessage
 from routers.deps import get_current_user
+from sqlalchemy.orm import aliased
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
@@ -242,4 +243,66 @@ async def get_bot_detail(
         "total_sessions": total_sessions,
         "total_tokens": total_tokens,
         "daily": list(date_map.values()),
+    }
+
+
+@router.get("/bots/{bot_id}/gaps")
+@user_limiter.limit("30/minute")
+async def get_content_gaps(
+    request: Request,
+    bot_id: str,
+    days: int = 30,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Returns user queries where the bot found no relevant documents.
+    These represent content gaps — topics not covered by uploaded documents.
+    """
+    bot = await db.get(Bot, bot_id)
+    if not bot or bot.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Bot not found")
+
+    since = _since(days)
+
+    # Find assistant messages that contain the "no documents" fallback string
+    no_docs_replies = await db.execute(
+        select(ChatMessage.session_id, ChatMessage.created_at)
+        .where(
+            ChatMessage.bot_id == bot_id,
+            ChatMessage.role == "assistant",
+            ChatMessage.content.ilike("%no relevant documents found%"),
+            ChatMessage.created_at >= since,
+        )
+        .order_by(ChatMessage.created_at.desc())
+    )
+    no_docs_rows = no_docs_replies.all()
+
+    # For each such reply, find the user message in the same session just before it
+    gaps = []
+    for row in no_docs_rows:
+        user_msg_result = await db.execute(
+            select(ChatMessage.content, ChatMessage.created_at)
+            .where(
+                ChatMessage.bot_id == bot_id,
+                ChatMessage.session_id == row.session_id,
+                ChatMessage.role == "user",
+                ChatMessage.created_at < row.created_at,
+            )
+            .order_by(ChatMessage.created_at.desc())
+            .limit(1)
+        )
+        user_msg = user_msg_result.first()
+        if user_msg:
+            gaps.append({
+                "query": user_msg.content,
+                "asked_at": row.created_at.isoformat(),
+                "session_id": row.session_id,
+            })
+
+    return {
+        "bot_id": bot_id,
+        "days": days,
+        "gap_count": len(gaps),
+        "gaps": gaps,
     }

@@ -99,7 +99,7 @@ async def telegram_webhook(
     history = await load_history(bot_id, session_id, db)
 
     chunks = await retrieve(bot_id, text)
-    context = "\n\n---\n\n".join(chunks) if chunks else "No relevant documents found."
+    context = "\n\n---\n\n".join(c["text"] for c in chunks) if chunks else "No relevant documents found."
     answer, tokens = await generate_answer_with_history(bot.persona, context, history, text)
 
     # persist history

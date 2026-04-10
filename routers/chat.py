@@ -43,16 +43,20 @@ async def _chat_logic(
 
     db.add(ChatMessage(bot_id=bot_id, session_id=session_id, role="user", content=message))
     db.add(ChatMessage(bot_id=bot_id, session_id=session_id, role="assistant", content=answer))
-    db.add(UsageLog(
+    usage_log = UsageLog(
         bot_id=bot_id,
         user_id=user.id,
         session_id=session_id,
         tokens_used=tokens,
         channel=channel,
-    ))
+    )
+    db.add(ChatMessage(bot_id=bot_id, session_id=session_id, role="user", content=message))
+    db.add(ChatMessage(bot_id=bot_id, session_id=session_id, role="assistant", content=answer))
+    db.add(usage_log)
     await db.commit()
+    await db.refresh(usage_log)
     sources = [{"filename": c["filename"], "text": c["text"][:200]} for c in chunks[:2]]
-    return ChatResponse(answer=answer, sources=sources, session_id=session_id)
+    return ChatResponse(answer=answer, sources=sources, session_id=session_id, usage_log_id=usage_log.id)
 
 
 # ── Streaming helper ──────────────────────────────────────────────────────────
